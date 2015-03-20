@@ -1,5 +1,8 @@
 <?php
+
 define('DATACITE_DOI_URL', 'mds.datacite.org/doi');
+define('TEST_DATACITE_DOI_URL', 'test.datacite.org/mds/doi');
+define('TEST_DATACITE_DOI_METADATA_URL', 'test.datacite.org/mds/metadata');
 
 function islandora_doi_menu() {
   $items = array();
@@ -19,21 +22,21 @@ function islandora_doi_perm() {
 
 function islandora_doi_admin() {
   $form = array();
-  
+
   $form['islandora_doi_prefix'] = array(
     '#type' => 'textfield',
     '#title' => t('DOI Prefix'),
     '#default_value' => variable_get('islandora_doi_prefix', ''),
   );
-  
+
   $form['islandora_doi_username'] = array(
     '#type' => 'textfield',
     '#title' => t('DataCite Username'),
     '#default_value' => variable_get('islandora_doi_username', ''),
   );
-  
+
   $form['islandora_doi_password'] = array(
-    '#type' => 'textfield',
+    '#type' => 'password',
     '#title' => t('DataCite Password'),
     '#default_value' => variable_get('islandora_doi_password', ''),
   );
@@ -44,25 +47,86 @@ function islandora_doi_admin() {
     '#default_value' => variable_get('islandora_doi_hostname', ''),
     '#description' => t('The URL hostname to be used for DOI record. Ex: http://@host_name', array('@host_name' => $_SERVER['SERVER_NAME'])),
   );
-  
+
   return system_settings_form($form);
 }
 
 function islandora_doi_mint($doi, $url) {
-  $prefix = variable_get('islandora_doi_prefix', '');
+  $prefix = islandora_doi_get_prefix();
   $doi = $prefix . '/' . $doi;
-  
+
   $data = drupal_query_string_encode(array('doi' => $doi, 'url' => $url));
-  
-  $request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . DATACITE_DOI_URL;
-  
+
+  //$request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . DATACITE_DOI_URL;
+  //SFOX custom url for testing only.
+  $request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . TEST_DATACITE_DOI_URL;
+
   $response = drupal_http_request($request_url, array('Content-Type' => 'application/x-www-form-urlencoded', 'charset' => 'UTF-8'), 'POST', $data);
-  
+
   if ($response->code == '201') {
     return $doi;
   }
   else {
     watchdog('islandora_doi', 'DOI mint failed: ' . $response->data);
+    return FALSE;
+  }
+}
+
+function islandora_doi_register_metadata($doi, $metadataxml) {
+  $prefix = islandora_doi_get_prefix();
+  $doi = $prefix . '/' . $doi;
+
+  //$data = drupal_query_string_encode(array('data' => $metadataxml));
+  //$data = rawurlencode($metadataxml);
+  $data = $metadataxml;
+
+  //$request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . DATACITE_DOI_URL;
+  //SFOX custom url for testing only.
+  $request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . TEST_DATACITE_DOI_METADATA_URL;
+  $response = drupal_http_request($request_url, array('Content-Type' => 'application/xml', 'charset' => 'UTF-8'), 'POST', $data, 3, 3600);
+
+  /*  $ch = curl_init(TEST_DATACITE_DOI_METADATA_URL);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array("Content-Type: application/xml", "charset: UTF-8"));
+    curl_setopt($ch, CURLOPT_POST, 1);
+    //curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); // return into a variable
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $body); // add POST fields
+    #curl_setopt($ch, CURLOPT_HEADER, 1);
+    #curl_setopt($ch, CURLOPT_VERBOSE, 1);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch, CURLOPT_USERPWD, variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', ''));
+    $response = curl_exec($ch); // run the whole process
+
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    //$response_header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+    //$response_header = substr($response, 0, $response_header_size);
+    //$response_body = substr($response, $response_header_size);
+
+   */
+  if ($response->code == '201') {
+    return $doi;
+  }
+  else {
+    switch ($response->code) {
+      case '400' : {
+          watchdog('islandora_doi', 'DOI metadata registration failed: Bad Request: ' . $response->data);
+          break;
+        }
+      case '401' : {
+          watchdog('islandora_doi', 'DOI metadata registration failed: Unauthorised: ' . $response->data);
+          break;
+        }
+      case '403' : {
+          watchdog('islandora_doi', 'DOI metadata registration failed: Forbidden: ' . $response->data);
+          break;
+        }
+      case '500' : {
+          watchdog('islandora_doi', 'DOI metadata registration failed: Internal Server Error: ' . $response->data);
+          break;
+        }
+      default: {
+          watchdog('islandora_doi', 'DOI metadata registraion failed: Unknown response code: ' . $response->data);
+        }
+    }
     return FALSE;
   }
 }
@@ -90,7 +154,9 @@ function islandora_doi_form_submit($form, &$form_state) {
       drupal_set_message(t('DOI minted: @doi for object: @pid', array('@doi' => $ret, '@pid' => $form_state['values']['pid'])));
       module_invoke_all('islandora_doi_post_mint', $form_state['values']['pid'], $ret);
     }
-    
   }
 }
 
+function islandora_doi_get_prefix() {
+  return variable_get('islandora_doi_prefix', '');
+}
