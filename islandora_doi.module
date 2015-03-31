@@ -55,7 +55,8 @@ function islandora_doi_mint($doi, $url) {
   $prefix = islandora_doi_get_prefix();
   $doi = $prefix . '/' . $doi;
 
-  $data = drupal_query_string_encode(array('doi' => $doi, 'url' => $url));
+  $fullurl = islandora_doi_get_hostname() . '/' . $url;
+  $data = drupal_query_string_encode(array('doi' => $doi, 'url' => $fullurl));
 
   //$request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . DATACITE_DOI_URL;
   //SFOX custom url for testing only.
@@ -138,4 +139,8 @@ function islandora_doi_form_submit($form, &$form_state) {
 
 function islandora_doi_get_prefix() {
   return variable_get('islandora_doi_prefix', '');
+}
+
+function islandora_doi_get_hostname() {
+  return variable_get('islandora_doi_hostname', '');
 }
