@@ -75,38 +75,45 @@ function islandora_doi_mint($doi, $url) {
 
 function islandora_doi_register_metadata($doi, $metadataxml) {
   $prefix = islandora_doi_get_prefix();
-  $doi = $prefix . '/' . $doi;
 
-  //$request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . DATACITE_DOI_URL;
-  //SFOX custom url for testing only.
-  $request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . TEST_DATACITE_DOI_METADATA_URL;
-  $response = drupal_http_request($request_url, array('Content-Type' => 'application/xml', 'charset' => 'UTF-8'), 'POST', $metadataxml);
+  if (!empty($prefix)) {
+    $doi = $prefix . '/' . $doi;
 
-  if ($response->code == '201') {
-    return $doi;
+    //$request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . DATACITE_DOI_URL;
+    //SFOX custom url for testing only.
+    $request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . TEST_DATACITE_DOI_METADATA_URL;
+    $response = drupal_http_request($request_url, array('Content-Type' => 'application/xml', 'charset' => 'UTF-8'), 'POST', $metadataxml);
+
+    if ($response->code == '201') {
+      return $doi;
+    }
+    else {
+      switch ($response->code) {
+        case '400' : {
+            watchdog('islandora_doi', 'DOI metadata registration failed: Bad Request: ' . $response->data);
+            break;
+          }
+        case '401' : {
+            watchdog('islandora_doi', 'DOI metadata registration failed: Unauthorised: ' . $response->data);
+            break;
+          }
+        case '403' : {
+            watchdog('islandora_doi', 'DOI metadata registration failed: Forbidden: ' . $response->data);
+            break;
+          }
+        case '500' : {
+            watchdog('islandora_doi', 'DOI metadata registration failed: Internal Server Error: ' . $response->data);
+            break;
+          }
+        default: {
+            watchdog('islandora_doi', 'DOI metadata registraion failed: Unknown response code: ' . $response->data);
+          }
+      }
+      return FALSE;
+    }
   }
   else {
-    switch ($response->code) {
-      case '400' : {
-          watchdog('islandora_doi', 'DOI metadata registration failed: Bad Request: ' . $response->data);
-          break;
-        }
-      case '401' : {
-          watchdog('islandora_doi', 'DOI metadata registration failed: Unauthorised: ' . $response->data);
-          break;
-        }
-      case '403' : {
-          watchdog('islandora_doi', 'DOI metadata registration failed: Forbidden: ' . $response->data);
-          break;
-        }
-      case '500' : {
-          watchdog('islandora_doi', 'DOI metadata registration failed: Internal Server Error: ' . $response->data);
-          break;
-        }
-      default: {
-          watchdog('islandora_doi', 'DOI metadata registraion failed: Unknown response code: ' . $response->data);
-        }
-    }
+    watchdog('islandora_doi', 'DOI metadata prefix is blank');
     return FALSE;
   }
 }
@@ -141,6 +148,39 @@ function islandora_doi_get_prefix() {
   return variable_get('islandora_doi_prefix', '');
 }
 
+function islandora_doi_get_username() {
+  return variable_get('islandora_doi_username', '');
+}
+
+function islandora_doi_has_password() {
+  $pwd = variable_get('islandora_doi_password', '');
+  if (empty($pwd)) {
+    return FALSE;
+  }
+  else {
+    return TRUE;
+  }
+}
+
 function islandora_doi_get_hostname() {
   return variable_get('islandora_doi_hostname', '');
+}
+
+function islandora_check_doi($doi) {
+  $prefix = islandora_doi_get_prefix();
+  $doi = $prefix . '/' . $doi;
+
+  //$request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . DATACITE_DOI_URL;
+  //SFOX custom url for testing only.
+  $request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . TEST_DATACITE_DOI_URL . '/' . $doi;
+
+  $response = drupal_http_request ($request_url, array('Content-Type' => 'application/x-www-form-urlencoded', 'charset' => 'UTF-8'), 'GET');
+
+  if ($response->code == '200') {
+    return $doi;
+  }
+  else {
+    watchdog('islandora_doi', 'DOI check failed: ' . $response->data);
+    return FALSE;
+  }
 }
