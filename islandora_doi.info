@@ -1,3 +1,4 @@
 name = "Islandora DOI API"
 description = "Basic DataCite DOI API for Islandora"
+version = 6.x-13.1
 core = 6.x

@@ -1,8 +1,6 @@
 <?php
 
 define('DATACITE_DOI_URL', 'mds.datacite.org/doi');
-define('TEST_DATACITE_DOI_URL', 'test.datacite.org/mds/doi');
-define('TEST_DATACITE_DOI_METADATA_URL', 'test.datacite.org/mds/metadata');
 
 function islandora_doi_menu() {
   $items = array();
@@ -36,7 +34,7 @@ function islandora_doi_admin() {
   );
 
   $form['islandora_doi_password'] = array(
-    '#type' => 'password',
+    '#type' => 'textfield',
     '#title' => t('DataCite Password'),
     '#default_value' => variable_get('islandora_doi_password', ''),
   );
@@ -58,11 +56,9 @@ function islandora_doi_mint($doi, $url) {
   $fullurl = islandora_doi_get_hostname() . '/' . $url;
   $data = drupal_query_string_encode(array('doi' => $doi, 'url' => $fullurl));
 
-  //$request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . DATACITE_DOI_URL;
-  //SFOX custom url for testing only.
-  $request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . TEST_DATACITE_DOI_URL;
+  //$post_request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . DATACITE_DOI_URL;
 
-  $response = drupal_http_request($request_url, array('Content-Type' => 'application/x-www-form-urlencoded', 'charset' => 'UTF-8'), 'POST', $data);
+  $response = drupal_http_request($post_request_url, array('Content-Type' => 'application/x-www-form-urlencoded', 'charset' => 'UTF-8'), 'POST', $data);
 
   if ($response->code == '201') {
     return $doi;
@@ -79,10 +75,10 @@ function islandora_doi_register_metadata($doi, $metadataxml) {
   if (!empty($prefix)) {
     $doi = $prefix . '/' . $doi;
 
-    //$request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . DATACITE_DOI_URL;
+    //$post_request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . DATACITE_DOI_METADATA_URL;
     //SFOX custom url for testing only.
-    $request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . TEST_DATACITE_DOI_METADATA_URL;
-    $response = drupal_http_request($request_url, array('Content-Type' => 'application/xml', 'charset' => 'UTF-8'), 'POST', $metadataxml);
+    $post_request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . TEST_DATACITE_DOI_METADATA_URL;
+    $response = drupal_http_request($post_request_url, array('Content-Type' => 'application/xml', 'charset' => 'UTF-8'), 'POST', $metadataxml);
 
     if ($response->code == '201') {
       return $doi;
@@ -162,6 +158,10 @@ function islandora_doi_has_password() {
   }
 }
 
+function islandora_doi_get_password() {
+  return variable_get('islandora_doi_password', '');
+}
+
 function islandora_doi_get_hostname() {
   return variable_get('islandora_doi_hostname', '');
 }
@@ -170,11 +170,11 @@ function islandora_check_doi($doi) {
   $prefix = islandora_doi_get_prefix();
   $doi = $prefix . '/' . $doi;
 
-  //$request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . DATACITE_DOI_URL;
+  //$get_request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . DATACITE_DOI_URL;
   //SFOX custom url for testing only.
-  $request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . TEST_DATACITE_DOI_URL . '/' . $doi;
+  $get_request_url = 'https://' . variable_get('islandora_doi_username', '') . ':' . variable_get('islandora_doi_password', '') . '@' . TEST_DATACITE_DOI_URL . '/' . $doi;
 
-  $response = drupal_http_request ($request_url, array('Content-Type' => 'application/x-www-form-urlencoded', 'charset' => 'UTF-8'), 'GET');
+  $response = drupal_http_request($get_request_url, array('Content-Type' => 'application/x-www-form-urlencoded', 'charset' => 'UTF-8'), 'GET');
 
   if ($response->code == '200') {
     return $doi;
